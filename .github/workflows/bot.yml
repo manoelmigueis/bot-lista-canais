@@ -1,0 +1,68 @@
+name: Bot Lista de Canais (24 h)
+
+# Cada rodada fica no ar ~5h45 e sai. O cron a cada 30 min deixa uma rodada na fila;
+# ela começa assim que a anterior termina, então o bot fica sempre ligado.
+# O banco (lista.db) é guardado criptografado no repositório: lista.db.enc.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: bot-lista
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 358
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Abrir o banco
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: |
+          if [ -f lista.db.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -in lista.db.enc -out lista.db -pass env:DB_KEY
+          fi
+
+      - name: Sessão da busca global (opcional)
+        env:
+          BUSCA_SESSION: ${{ secrets.BUSCA_SESSION }}
+        run: |
+          if [ -n "$BUSCA_SESSION" ]; then echo "$BUSCA_SESSION" | base64 -d > busca.session; fi
+
+      - name: Rodar o bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_ID: ${{ secrets.ADMIN_ID }}
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          LIMITE_MIN: "345"
+          PYTHONUTF8: "1"
+        run: python -u bot.py
+
+      - name: Guardar o banco
+        if: always()
+        env:
+          DB_KEY: ${{ secrets.DB_KEY }}
+        run: |
+          [ -f lista.db ] || exit 0
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in lista.db -out lista.db.enc -pass env:DB_KEY
+          git config user.name "bot-lista"
+          git config user.email "bot-lista@users.noreply.github.com"
+          git add lista.db.enc
+          git diff --cached --quiet || git commit -m "bot: banco $(date -u +%F' '%H:%M)"
+          git pull --rebase -X theirs || true
+          git push

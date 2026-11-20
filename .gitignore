@@ -1,0 +1,9 @@
+.env
+*.session
+*.session-journal
+lista.db
+lista.db-journal
+__pycache__/
+*.bak
+Bot Lista de Canais - Guia.md
+iniciar.bat
