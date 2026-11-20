@@ -24,6 +24,7 @@ from telegram import (
     InlineQueryResultsButton,
     InputTextMessageContent,
     MenuButtonWebApp,
+    Message,
     Update,
     WebAppInfo,
 )
@@ -123,6 +124,8 @@ db.commit()
 PADRAO = {
     "descricao": "🔥 Lista de canais\n\n🚀 Adicione seu canal na lista, é grátis e automático!",
     "midia": "",
+    "rico": "0",
+    "descricao_md": "",
     "midia_tipo": "",
     "horarios": "20:00",
     "dias": "0123456",
@@ -588,7 +591,7 @@ async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [B(f"📌 Fixar: {sim('fixar')}", "tg:fixar"), B(f"🔒 Proteger: {sim('proteger')}", "tg:proteger")],
         [B("📝 Texto da lista", "cfg:descricao"), B("🖼️ Mídia", "cfg:midia")],
         [B("🔗 Meus botões (links)", "bts"), B(f"📂 Ver mais: {sim('ver_mais')}", "tg:ver_mais")],
-        [B(f"🎨 Cores: {CORES[cfg('cores')]}", "cy:cores")],
+        [B(f"🎨 Cores: {CORES[cfg('cores')]}", "cy:cores"), B(f"✨ Texto rico: {sim('rico')}", "tg:rico")],
         [B("🏠 Página inicial", "cfg:inicio"), B(f"📞 Suporte: {'ligado' if cfg('suporte') else 'desligado'}", "cfg:suporte")],
         [B(f"🗑️ Apagar após: {cfg('horas_apagar')} h", "cfg:horas_apagar"), B(f"💬 Avisos: {sim('avisos')}", "tg:avisos")],
         [B(f"🛡️ Aprovação manual: {sim('moderacao')}", "tg:moderacao")],
@@ -620,6 +623,14 @@ async def pedir_config(update: Update, context: ContextTypes.DEFAULT_TYPE, chave
     extra = None
     if chave == "midia" and atual:
         extra = [B("🚫 Remover mídia", "semmidia")]
+    elif chave == "descricao" and ligado("rico"):
+        pedido = ("o texto da lista (até 4000 caracteres). O ✨ Texto rico está ligado, então vale:\n"
+                  "<code># Título</code>, <code>## Subtítulo</code>, <code>**negrito**</code>, "
+                  "<code>*itálico*</code>, <code>==marcado==</code>, <code>> citação</code>, "
+                  "<code>- lista</code>, <code>---</code> (linha) e tabelas "
+                  "<code>| A | B |</code>. Negrito e itálico do próprio Telegram também valem.")
+        if atual:
+            pedido += f"\n\nAtual:\n<i>{esc(cfg('descricao_md') or atual)}</i>"
     elif chave in ("descricao", "inicio") and atual:
         pedido += f"\n\nAtual:\n<i>{esc(atual)}</i>"
     elif chave not in ("midia",):
@@ -645,8 +656,9 @@ def validar_config(chave: str, texto: str) -> tuple[str | None, str]:
             return None, "Mande de 1 a 6 horários."
         return ", ".join(sorted(hs)), ""
     if chave == "descricao":
-        if len(texto) > 900:
-            return None, f"Texto com {len(texto)} caracteres. O limite é 900."
+        limite = 4000 if ligado("rico") else 900
+        if len(texto) > limite:
+            return None, f"Texto com {len(texto)} caracteres. O limite é {limite}."
         return texto, ""
     if chave == "inicio":
         if texto == "-":
@@ -1093,6 +1105,9 @@ async def mensagem_privada(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             return
         context.user_data.pop("esperando")
         set_cfg(chave, valor)
+        if chave == "descricao":
+            # versão para o texto rico: mantém negrito/itálico/links do Telegram como HTML
+            set_cfg("descricao_md", (msg.text_html or valor).replace("&gt;", ">").strip())
         if chave == "horarios":
             agendar(context.application)
         await msg.reply_text(f"✅ {CAMPOS[chave][0]} salvo.")
@@ -1296,8 +1311,28 @@ def pintar(grade: list, rodape: list) -> None:
         rodape[1] = InlineKeyboardButton(rodape[1].text, url=rodape[1].url, style="primary")
 
 
+async def mandar_rica(bot, chat_id: int, teclado):
+    """Rich Message (Bot API 10.1): títulos, listas, tabelas, citações e a mídia dentro do texto."""
+    midia, tipo = cfg("midia"), cfg("midia_tipo")
+    md = cfg("descricao_md") or cfg("descricao")
+    rico = {"markdown": md}
+    if midia:
+        tag = {"video": "video", "animation": "video"}.get(tipo, "photo")
+        rico["markdown"] = f"![](tg://{tag}?id=lista)\n\n{md}"
+        rico["media"] = [{"id": "lista", "media": {"type": tipo or "photo", "media": midia}}]
+    return await bot.do_api_request("sendRichMessage", api_kwargs={
+        "chat_id": chat_id, "rich_message": rico, "reply_markup": teclado.to_dict(),
+        "protect_content": ligado("proteger")}, return_type=Message)
+
+
 async def mandar_lista(bot, chat_id: int, teclado):
+    if ligado("rico"):
+        try:
+            return await mandar_rica(bot, chat_id, teclado)
+        except BadRequest as e:  # texto que o Telegram não aceitou: vai no formato comum
+            log.warning("Texto rico recusado em %s: %s", chat_id, e)
     midia, tipo, texto = cfg("midia"), cfg("midia_tipo"), cfg("descricao")
+    texto = texto[:1024] if midia else texto[:4096]
     extra = {"reply_markup": teclado, "protect_content": ligado("proteger")}
     if midia and tipo == "video":
         return await bot.send_video(chat_id, midia, caption=texto, **extra)
