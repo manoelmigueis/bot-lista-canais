@@ -6,7 +6,7 @@
   "adicionar_grupo": "https://t.me/digaolabot?startgroup&admin=delete_messages+pin_messages+invite_users",
   "aceita": "canais"
  },
- "horarios": "18:00",
+ "horarios": "13:00, 20:00",
  "categorias": [
   "📰 Notícias",
   "😂 Humor",
@@ -120,7 +120,7 @@
    "categoria": "📦 Outros",
    "tipo": "canal",
    "desde": null,
-   "foto": "fotos/AQADCgxrG1ul6UcAAQ.jpg"
+   "foto": null
   },
   {
    "titulo": "📚 Cursos Grátis Online Udemy",
@@ -143,5 +143,5 @@
    "foto": "fotos/AQADfxJrG3Uq2EYAAQ.jpg"
   }
  ],
- "atualizado": "2026-11-20T00:47-04:00"
+ "atualizado": "2026-11-20T00:59-04:00"
 }
