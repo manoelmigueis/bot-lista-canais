@@ -98,6 +98,8 @@ db.executescript(
     """
 )
 _cols = {r[1] for r in db.execute("PRAGMA table_info(canais)")}
+if "teclado" not in {r[1] for r in db.execute("PRAGMA table_info(envios)")}:
+    db.execute("ALTER TABLE envios ADD COLUMN teclado TEXT")
 for _col, _ddl in {
     "categoria": "TEXT DEFAULT '📦 Outros'",
     "criado_em": "TEXT",
@@ -366,12 +368,9 @@ async def mudou_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         ok, msg = await registrar(context.bot, mcm.chat.id, quem)
         await pos_registro(context.bot, mcm.chat.id, quem, ok, msg)
     elif novo in (ChatMemberStatus.LEFT, ChatMemberStatus.BANNED, ChatMemberStatus.MEMBER):
-        r = canal(mcm.chat.id)
-        if r and r["ativo"]:
-            db.execute("UPDATE canais SET ativo=0 WHERE chat_id=?", (mcm.chat.id,))
-            db.commit()
-            log.info("Saiu da lista: %s", mcm.chat.title)
-            await avisar_admin(context.bot, f"🚪 {icone(r)} <b>{esc(r['titulo'])}</b> me tirou e saiu da lista.")
+        await tirar_da_lista(context.bot, mcm.chat.id,
+                             "o bot foi tirado da administração do canal.",
+                             "me tirou da administração.")
 
 
 # ================================================================ telas de quem usa
@@ -1298,13 +1297,70 @@ async def apagar_envios(bot, tudo: bool = False) -> int:
         rows = db.execute("SELECT rowid, * FROM envios WHERE apagar_em <= ?",
                           (agora().isoformat(),)).fetchall()
     for r in rows:
+        db.execute("DELETE FROM envios WHERE rowid=?", (r["rowid"],))
+        db.commit()
         try:
             await bot.delete_message(r["chat_id"], r["message_id"])
         except TelegramError:
             pass  # já apagada ou sem permissão
-        db.execute("DELETE FROM envios WHERE rowid=?", (r["rowid"],))
-    db.commit()
     return len(rows)
+
+
+AVISO_SAIDA = ("⚠️ <b>{titulo}</b> foi removido da lista de divulgação.\n\n"
+               "Motivo: {motivo}\n\n"
+               "A partir de agora o link do seu canal deixa de aparecer nas listas e no site"
+               "{convite}. Para voltar, fale com o suporte.")
+
+
+async def tirar_da_lista(bot, chat_id: int, motivo: str, motivo_admin: str) -> None:
+    """Remove o canal, desativa o link de convite criado pelo bot e avisa o dono e você."""
+    r = canal(chat_id)
+    if not r or not r["ativo"]:
+        return
+    db.execute("UPDATE canais SET ativo=0 WHERE chat_id=?", (chat_id,))
+    db.execute("DELETE FROM envios WHERE chat_id=?", (chat_id,))
+    db.commit()
+    convite = ""
+    if r["link"] and "/+" in r["link"]:  # link de convite (canal privado), não o @ público
+        try:
+            await bot.revoke_chat_invite_link(chat_id, r["link"])
+            convite = ", e o link de convite que eu criei foi desativado"
+        except TelegramError:
+            pass  # o link não foi criado pelo bot ou o bot já saiu
+    sup = url_suporte()
+    await avisar(bot, r["dono_id"],
+                 AVISO_SAIDA.format(titulo=esc(r["titulo"]), motivo=motivo, convite=convite),
+                 kb([U("📞 Suporte", sup)]) if sup else None)
+    await avisar_admin(bot, f"🚫 {icone(r)} <b>{esc(r['titulo'])}</b> saiu da lista: {motivo_admin}",
+                       kb([B("↩️ Ver canal", f"cadm:{chat_id}")]))
+    log.info("Saiu da lista (%s): %s", motivo_admin, r["titulo"])
+
+
+async def job_vigia(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Confere se a lista ainda está no canal. Bot não recebe aviso de mensagem apagada,
+    então ele "reedita" os mesmos botões: se a mensagem sumiu, o Telegram responde
+    "message to edit not found"."""
+    bot = context.bot
+    limite = (agora() + timedelta(minutes=5)).isoformat()  # perto da hora, quem apaga é o bot
+    rows = db.execute("SELECT rowid, * FROM envios WHERE teclado IS NOT NULL AND apagar_em > ?",
+                      (limite,)).fetchall()
+    for r in rows:
+        try:
+            await bot.edit_message_reply_markup(
+                r["chat_id"], r["message_id"],
+                reply_markup=InlineKeyboardMarkup.de_json(json.loads(r["teclado"]), bot))
+        except BadRequest as e:
+            erro = str(e).lower()
+            if "not found" not in erro:
+                continue  # "not modified" = a lista está lá
+            if not db.execute("SELECT 1 FROM envios WHERE rowid=?", (r["rowid"],)).fetchone():
+                continue  # o próprio bot apagou neste meio-tempo
+            await tirar_da_lista(bot, r["chat_id"],
+                                 "a lista foi apagada do canal antes da hora, sem autorização.",
+                                 "apagou a lista antes da hora.")
+        except TelegramError:
+            continue  # sem acesso: a saída do bot é tratada em mudou_status
+        await asyncio.sleep(0.2)
 
 
 async def job_limpeza(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1361,7 +1417,8 @@ async def fazer_envio(bot) -> str:
     for c in escolhidos:
         try:
             msg = await mandar_lista(bot, c["chat_id"], teclado)
-            db.execute("INSERT INTO envios VALUES (?,?,?)", (c["chat_id"], msg.message_id, apagar_em))
+            db.execute("INSERT INTO envios VALUES (?,?,?,?)", (c["chat_id"], msg.message_id, apagar_em,
+                                                                  json.dumps(teclado.to_dict())))
             db.execute("UPDATE canais SET ultimo_envio=? WHERE chat_id=?",
                        (agora().isoformat(), c["chat_id"]))
             ok += 1
@@ -1491,6 +1548,7 @@ async def job_site(context: ContextTypes.DEFAULT_TYPE) -> None:
 async def ao_iniciar(app: Application) -> None:
     agendar(app)
     app.job_queue.run_repeating(job_site, interval=1800, first=15)
+    app.job_queue.run_repeating(job_vigia, interval=600, first=60)
     try:
         await app.bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp("Lista", WebAppInfo(WEB_URL)))
