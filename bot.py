@@ -53,6 +53,8 @@ CATEGORIAS = [
 ]
 DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]  # convenção do PTB: 0 = domingo
 ACEITA = {"canais": "só canais", "grupos": "só grupos", "ambos": "canais e grupos"}
+CORES = {"nenhuma": "⚪ Sem cor", "azul": "🔵 Azul", "verde": "🟢 Verde", "vermelho": "🔴 Vermelho",
+         "xadrez": "🏁 Xadrez", "faixas": "🌈 Faixas", "sorteio": "🎲 Sorteio"}
 ORDEM = {"rodizio": "🔄 Rodízio", "membros": "👥 Por membros", "aleatoria": "🎲 Aleatória"}
 
 
@@ -130,6 +132,7 @@ PADRAO = {
     "moderacao": "0",
     "aceita": "canais",
     "colunas": "1",
+    "cores": "nenhuma",
     "ordem": "rodizio",
     "fixar": "0",
     "proteger": "0",
@@ -585,6 +588,7 @@ async def painel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [B(f"📌 Fixar: {sim('fixar')}", "tg:fixar"), B(f"🔒 Proteger: {sim('proteger')}", "tg:proteger")],
         [B("📝 Texto da lista", "cfg:descricao"), B("🖼️ Mídia", "cfg:midia")],
         [B("🔗 Meus botões (links)", "bts"), B(f"📂 Ver mais: {sim('ver_mais')}", "tg:ver_mais")],
+        [B(f"🎨 Cores: {CORES[cfg('cores')]}", "cy:cores")],
         [B("🏠 Página inicial", "cfg:inicio"), B(f"📞 Suporte: {'ligado' if cfg('suporte') else 'desligado'}", "cfg:suporte")],
         [B(f"🗑️ Apagar após: {cfg('horas_apagar')} h", "cfg:horas_apagar"), B(f"💬 Avisos: {sim('avisos')}", "tg:avisos")],
         [B(f"🛡️ Aprovação manual: {sim('moderacao')}", "tg:moderacao")],
@@ -924,7 +928,8 @@ async def botoes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         set_cfg(args[0], "0" if ligado(args[0]) else "1")
         await painel(update, context)
     elif cmd == "cy":
-        opcoes = {"aceita": list(ACEITA), "colunas": ["1", "2", "3"], "ordem": list(ORDEM)}[args[0]]
+        opcoes = {"aceita": list(ACEITA), "colunas": ["1", "2", "3"], "ordem": list(ORDEM),
+                  "cores": list(CORES)}[args[0]]
         atual = cfg(args[0])
         set_cfg(args[0], opcoes[(opcoes.index(atual) + 1) % len(opcoes)])
         await painel(update, context)
@@ -1259,14 +1264,36 @@ def montar_teclado(bot, escolhidos) -> InlineKeyboardMarkup:
     col = int(cfg("colunas"))
     corte = {1: 60, 2: 28, 3: 18}[col]
     links = db.execute("SELECT * FROM links ORDER BY id").fetchall()
-    topo = [[U(l["texto"], l["url"])] for l in links if l["posicao"] == "topo"]
-    fim = [[U(l["texto"], l["url"])] for l in links if l["posicao"] != "topo"]
-    bts = [U(c["titulo"][:corte], c["link"]) for c in escolhidos]
+    # links avulsos entram na mesma grade, no mesmo número de colunas
+    bts = ([U(l["texto"][:corte], l["url"]) for l in links if l["posicao"] == "topo"]
+           + [U(c["titulo"][:corte], c["link"]) for c in escolhidos]
+           + [U(l["texto"][:corte], l["url"]) for l in links if l["posicao"] != "topo"])
     grade = [bts[i:i + col] for i in range(0, len(bts), col)]
     rodape = [U("➕ Adicione seu canal", f"https://t.me/{bot.username}?start=lista")]
     if ligado("ver_mais"):
         rodape.append(U("📂 Ver mais", WEB_URL))
-    return InlineKeyboardMarkup(topo + grade + fim + [rodape])
+    pintar(grade, rodape)
+    return InlineKeyboardMarkup(grade + [rodape])
+
+
+def pintar(grade: list, rodape: list) -> None:
+    """Cor dos botões (Telegram aceita azul, verde e vermelho). Sorteio muda a cada envio."""
+    modo = cfg("cores")
+    if modo == "nenhuma":
+        return
+    tres = ["primary", "success", "danger"]
+    if modo == "sorteio":
+        modo = random.choice(["azul", "verde", "vermelho", "xadrez", "faixas", "aleatorio"])
+    for i, linha in enumerate(grade):
+        for j, b in enumerate(linha):
+            cor = {"azul": "primary", "verde": "success", "vermelho": "danger",
+                   "xadrez": tres[(i + j) % 2],
+                   "faixas": tres[i % 3],
+                   "aleatorio": random.choice(tres)}[modo]
+            linha[j] = InlineKeyboardButton(b.text, url=b.url, style=cor)
+    rodape[0] = InlineKeyboardButton(rodape[0].text, url=rodape[0].url, style="success")
+    if len(rodape) > 1:
+        rodape[1] = InlineKeyboardButton(rodape[1].text, url=rodape[1].url, style="primary")
 
 
 async def mandar_lista(bot, chat_id: int, teclado):
