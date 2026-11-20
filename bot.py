@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import re
 import sqlite3
 from datetime import datetime, time as dtime, timedelta, timezone
 from pathlib import Path
@@ -1107,7 +1108,11 @@ async def mensagem_privada(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         set_cfg(chave, valor)
         if chave == "descricao":
             # versão para o texto rico: mantém negrito/itálico/links do Telegram como HTML
-            set_cfg("descricao_md", (msg.text_html or valor).replace("&gt;", ">").strip())
+            md = arrumar_md((msg.text_html or valor).replace("&gt;", ">").strip())
+            set_cfg("descricao_md", md)
+            if not ligado("rico") and parece_md(md):
+                set_cfg("rico", "1")
+                await msg.reply_text("✨ Vi formatação no texto (#, **, tabela...) e liguei o Texto rico.")
         if chave == "horarios":
             agendar(context.application)
         await msg.reply_text(f"✅ {CAMPOS[chave][0]} salvo.")
@@ -1309,6 +1314,15 @@ def pintar(grade: list, rodape: list) -> None:
     rodape[0] = InlineKeyboardButton(rodape[0].text, url=rodape[0].url, style="success")
     if len(rodape) > 1:
         rodape[1] = InlineKeyboardButton(rodape[1].text, url=rodape[1].url, style="primary")
+
+
+def arrumar_md(md: str) -> str:
+    """"# Título ## Subtítulo" escrito numa linha só: cada # passa a começar uma linha."""
+    return re.sub(r"[ \t]+(#{1,6} )", r"\n\n\1", md)
+
+
+def parece_md(md: str) -> bool:
+    return bool(re.search(r"^(#{1,6} |\|.*\||---$)|\*\*|==", md, re.M))
 
 
 async def mandar_rica(bot, chat_id: int, teclado):
