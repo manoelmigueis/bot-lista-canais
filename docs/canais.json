@@ -1,7 +1,7 @@
 {
  "bot": {
   "username": "digaolabot",
-  "nome": "🔥Lista Lendaria",
+  "nome": "🔥Lista de Canais Lendaria",
   "adicionar_canal": "https://t.me/digaolabot?startchannel&admin=post_messages+delete_messages+edit_messages+invite_users",
   "adicionar_grupo": "https://t.me/digaolabot?startgroup&admin=delete_messages+pin_messages+invite_users",
   "aceita": "canais"
@@ -143,5 +143,5 @@
    "foto": "fotos/AQADfxJrG3Uq2EYAAQ.jpg"
   }
  ],
- "atualizado": "2026-11-20T13:00-04:00"
+ "atualizado": "2026-11-20T17:42-04:00"
 }
