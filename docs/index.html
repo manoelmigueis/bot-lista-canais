@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lista de Canais</title>
+<meta name="description" content="Canais e grupos do Telegram para descobrir e entrar. Adicione o seu de graça.">
+<meta name="theme-color" content="#e8edf4">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231a64d6'/%3E%3Cpath d='M47 19 14 31.5c-1.6.6-1.5 2.8.1 3.3l8 2.5 3.1 9.7c.4 1.3 2 1.6 2.9.7l4.5-4.4 8.6 6.3c1.1.8 2.6.2 2.9-1.1L51 22.4c.4-2-1.2-3.8-4-3.4Z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --font:'Urbanist',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --bg:#e8edf4; --mesh-a:#a9c7f3; --mesh-b:#b8e0f1; --mesh-c:#d5dbf6;
+  --glass:rgba(255,255,255,.56); --glass-2:rgba(255,255,255,.74); --glass-3:rgba(255,255,255,.92);
+  --rim:rgba(255,255,255,.8); --line:rgba(15,26,43,.09); --line-2:rgba(15,26,43,.17); --soft:rgba(15,26,43,.055);
+  --ink:#0f1a2b; --muted:#4c586b; --faint:#7a8597;
+  --pri:#0f1d33; --on-pri:#f3f7fd;
+  --acento:#1a64d6; --on-acento:#fff; --acento-soft:#dbe7fb; --acento-ink:#134ea8;
+  --ok:#1b7f4a; --ok-soft:#dcf1e5;
+  --shadow:0 1px 0 rgba(255,255,255,.7) inset,0 24px 48px -30px rgba(20,40,80,.35);
+  --shadow-pop:0 24px 60px -18px rgba(20,40,80,.35),0 2px 6px rgba(20,40,80,.08);
+  --r-card:26px; --r-tile:20px; --ease:cubic-bezier(.2,.8,.2,1);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --mesh-a:#1b3566; --mesh-b:#123b4d; --mesh-c:#2a2c5a;
+  --glass:rgba(22,32,52,.58); --glass-2:rgba(28,40,64,.78); --glass-3:rgba(34,48,76,.94);
+  --rim:rgba(255,255,255,.08); --line:rgba(226,234,246,.09); --line-2:rgba(226,234,246,.18); --soft:rgba(226,234,246,.06);
+  --ink:#e8eef8; --muted:#a6b2c5; --faint:#7d8aa0;
+  --pri:#e8eef8; --on-pri:#0f1a2b;
+  --acento:#4c8dff; --on-acento:#fff; --acento-soft:rgba(76,141,255,.16); --acento-ink:#8db6ff;
+  --ok:#5fd394; --ok-soft:rgba(95,211,148,.14);
+  --shadow:0 1px 0 rgba(255,255,255,.05) inset,0 24px 48px -30px rgba(0,0,0,.7);
+  --shadow-pop:0 24px 60px -18px rgba(0,0,0,.7),0 2px 6px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--font);color:var(--ink);background:var(--bg);min-height:100vh;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:-20vmax;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(40vmax 34vmax at 12% 18%,var(--mesh-a),transparent 62%),
+    radial-gradient(36vmax 30vmax at 88% 22%,var(--mesh-b),transparent 60%),
+    radial-gradient(44vmax 36vmax at 55% 96%,var(--mesh-c),transparent 62%);
+  filter:blur(10px);opacity:.85;
+}
+a{color:inherit;text-decoration:none}
+button,input{font:inherit;color:inherit}
+.glass{
+  background:var(--glass);border:1px solid var(--rim);box-shadow:var(--shadow);
+  -webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);
+}
+.wrap{width:100%;max-width:1180px;margin:0 auto;padding:0 16px}
+
+/* topo */
+.topo{position:sticky;top:0;z-index:20;padding:12px 0 0}
+.topo .barra{display:flex;align-items:center;gap:12px;border-radius:999px;padding:8px 8px 8px 10px}
+.logo{width:40px;height:40px;border-radius:13px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(145deg,#3b8bff,#1a64d6 55%,#134ea8);box-shadow:0 8px 18px -8px rgba(26,100,214,.7),inset 0 1px 0 rgba(255,255,255,.35)}
+.logo svg{width:21px;height:21px}
+.marca{min-width:0;flex:1}
+.marca b{display:block;font-size:16px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marca span{display:block;font-size:12.5px;color:var(--muted);font-weight:500}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;
+  border-radius:999px;font-weight:700;font-size:14px;padding:11px 18px;white-space:nowrap;
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease),background .18s}
+.btn:active{transform:scale(.97)}
+.btn-pri{background:var(--pri);color:var(--on-pri);box-shadow:0 10px 22px -12px rgba(15,29,51,.6)}
+.btn-pri:hover{box-shadow:0 14px 28px -12px rgba(15,29,51,.7)}
+.btn-ac{background:var(--acento);color:var(--on-acento)}
+.btn-sec{background:var(--glass-3);border:1px solid var(--line)}
+.btn svg{width:16px;height:16px;flex:none}
+
+/* hero */
+.hero{margin-top:18px;border-radius:var(--r-card);padding:28px 26px;display:grid;gap:18px;
+  grid-template-columns:1fr auto;align-items:end}
+.hero h1{font-size:clamp(28px,4.4vw,44px);line-height:1.04;font-weight:800;letter-spacing:-.02em}
+.hero h1 em{font-style:normal;color:var(--acento)}
+.hero p{margin-top:10px;color:var(--muted);font-size:15.5px;line-height:1.5;max-width:52ch}
+.stats{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.stat{background:var(--glass-2);border:1px solid var(--rim);border-radius:18px;padding:12px 16px;min-width:112px}
+.stat b{display:block;font-size:22px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted);font-weight:600}
+
+/* filtros */
+.filtros{position:sticky;top:72px;z-index:15;margin-top:16px;padding:10px;border-radius:24px;display:grid;gap:10px}
+.busca{display:flex;align-items:center;gap:10px;background:var(--glass-3);border:1px solid var(--line);
+  border-radius:999px;padding:0 6px 0 16px;height:48px}
+.busca:focus-within{border-color:var(--acento);box-shadow:0 0 0 4px var(--acento-soft)}
+.busca svg{width:18px;height:18px;color:var(--faint);flex:none}
+.busca input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:16px;font-weight:500}
+.busca input::placeholder{color:var(--faint)}
+.limpar{border:0;background:var(--soft);width:34px;height:34px;border-radius:50%;cursor:pointer;display:none;place-items:center}
+.limpar.on{display:grid}
+.linha2{display:flex;gap:10px;align-items:center;min-width:0}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:2px;
+  -webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent)}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--glass-2);border-radius:999px;padding:8px 14px;
+  font-size:13.5px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .18s var(--ease)}
+.chip:hover{color:var(--ink)}
+.chip.on{background:var(--pri);color:var(--on-pri);border-color:transparent}
+.chip small{opacity:.7;font-weight:700;margin-left:4px}
+.ordem{flex:none;display:flex;background:var(--soft);border-radius:999px;padding:3px}
+.ordem button{border:0;background:transparent;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.ordem button.on{background:var(--glass-3);color:var(--ink);box-shadow:0 2px 8px -3px rgba(20,40,80,.25)}
+
+/* grade */
+.info{display:flex;justify-content:space-between;align-items:center;margin:20px 4px 12px;color:var(--muted);font-size:13.5px;font-weight:600}
+.grade{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr))}
+.card{position:relative;border-radius:var(--r-tile);padding:16px;display:flex;flex-direction:column;gap:14px;
+  transition:transform .22s var(--ease),box-shadow .22s var(--ease),background .22s;cursor:pointer;
+  animation:entra .45s var(--ease) both}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-pop);background:var(--glass-2)}
+.card:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
+@keyframes entra{from{opacity:0;transform:translateY(10px)}}
+.cab{display:flex;gap:13px;align-items:center;min-width:0}
+.av{width:54px;height:54px;border-radius:17px;flex:none;overflow:hidden;position:relative;display:grid;place-items:center;
+  font-weight:800;font-size:21px;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.nome{min-width:0;flex:1}
+.nome b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15.5px;line-height:1.25;font-weight:700}
+.nome>span{display:block;margin-top:3px;font-size:13px;color:var(--faint);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pe{display:flex;align-items:center;gap:8px;margin-top:auto}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.tag-m{background:var(--acento-soft);color:var(--acento-ink)}
+.tag-c{background:var(--soft);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tag svg{width:13px;height:13px}
+.entrar{margin-left:auto;padding:8px 14px;font-size:13px}
+.rank{position:absolute;top:12px;right:14px;font-size:12px;font-weight:800;color:var(--faint)}
+
+/* cta e vazio */
+.cta{margin:26px 0 8px;border-radius:var(--r-card);padding:26px;display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.cta h2{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.cta p{color:var(--muted);margin-top:6px;font-size:14.5px;line-height:1.5;max-width:56ch}
+.cta .acoes{display:flex;gap:10px;flex-wrap:wrap}
+.vazio{grid-column:1/-1;text-align:center;padding:48px 20px;border-radius:var(--r-tile);color:var(--muted)}
+.vazio b{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+.esq{height:150px;border-radius:var(--r-tile);background:linear-gradient(100deg,var(--glass) 30%,var(--glass-3) 50%,var(--glass) 70%);background-size:300% 100%;animation:brilho 1.3s linear infinite}
+@keyframes brilho{to{background-position:-150% 0}}
+footer{text-align:center;color:var(--faint);font-size:12.5px;font-weight:600;padding:22px 16px calc(28px + env(safe-area-inset-bottom))}
+
+/* celular */
+@media (max-width:720px){
+  .hero{grid-template-columns:minmax(0,1fr);padding:22px 18px;gap:16px}
+  .stats{justify-content:stretch;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{min-width:0;padding:10px 12px}
+  .stat b{font-size:18px}
+  .stat span{font-size:11.5px}
+  .filtros{position:static;padding:8px;border-radius:22px}
+  .linha2{flex-direction:column;align-items:stretch}
+  .ordem{align-self:flex-start}
+  .grade{grid-template-columns:minmax(0,1fr);gap:10px}
+  .card{flex-direction:row;align-items:center;padding:12px;gap:12px}
+  .card .cab{flex:1}
+  .card .pe{margin:0;flex:none}
+  .card .tag-c,.card .rank{display:none}
+  .av{width:48px;height:48px;border-radius:15px;font-size:19px}
+  .nome b{font-size:15px}
+  .nome .m-mob{display:inline}
+  .tag-m{display:none}
+  .entrar{padding:9px 14px}
+  .cta{padding:20px 18px}
+  .cta .acoes,.cta .acoes .btn{width:100%}
+  .topo .add-txt{display:none}
+  .topo .btn{padding:11px 13px}
+}
+.m-mob{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body.tg .topo{padding-top:8px}
+</style>
+</head>
+<body>
+<header class="topo"><div class="wrap">
+  <div class="barra glass">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="#fff"><path d="M20.7 4.1 2.9 11c-1.2.5-1.2 1.9 0 2.3l4.5 1.4 1.7 5.3c.2.7 1.1.9 1.6.4l2.5-2.4 4.8 3.5c.6.4 1.4.1 1.6-.6L22.6 6c.3-1.4-.7-2.4-1.9-1.9Zm-3.3 4-7.6 6.9-.3 3.2-1.3-4.3 8.7-5.5c.4-.2.7.3.5.7Z"/></svg></div>
+    <div class="marca"><b id="nomeBot">Lista de Canais</b><span id="userBot">Canais e grupos do Telegram</span></div>
+    <a class="btn btn-pri" id="btnAdd" href="#" aria-label="Adicionar meu canal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="add-txt">Adicionar canal</span>
+    </a>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="hero glass">
+    <div>
+      <h1>Descubra canais <em>que valem a pena</em></h1>
+      <p>Os canais e grupos da nossa lista de divulgação, em um só lugar. Toque em um para entrar. Tem um canal? Coloque o seu de graça.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sCanais">–</b><span>na lista</span></div>
+      <div class="stat"><b id="sMembros">–</b><span>membros somados</span></div>
+      <div class="stat"><b id="sHora">–</b><span>a lista sai</span></div>
+    </div>
+  </section>
+
+  <section class="filtros glass" aria-label="Filtros">
+    <label class="busca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Buscar canal ou grupo" autocomplete="off" enterkeyhint="search" aria-label="Buscar canal ou grupo">
+      <button class="limpar" id="limpar" type="button" aria-label="Limpar busca"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </label>
+    <div class="linha2">
+      <div class="chips" id="chips" role="tablist" aria-label="Categorias"></div>
+      <div class="ordem" role="group" aria-label="Ordenar">
+        <button type="button" data-o="pop" class="on">Populares</button>
+        <button type="button" data-o="az">A–Z</button>
+        <button type="button" data-o="novos">Novos</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="info"><span id="contagem">Carregando…</span><span id="tipoFiltro"></span></div>
+  <section class="grade" id="grade" aria-live="polite">
+    <div class="esq"></div><div class="esq"></div><div class="esq"></div>
+  </section>
+
+  <section class="cta glass">
+    <div>
+      <h2>Seu canal nesta lista</h2>
+      <p>Coloque o bot como administrador e o seu canal entra sozinho, de graça. Ele aparece aqui e na lista postada em todos os participantes.</p>
+    </div>
+    <div class="acoes" id="ctaAcoes"></div>
+  </section>
+</main>
+<footer id="rodape">Lista de Canais</footer>
+
+<script>
+(() => {
+  const tg = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData !== undefined && Telegram.WebApp.platform !== 'unknown' ? Telegram.WebApp : null;
+  const raiz = document.documentElement;
+
+  // tema: Telegram > sistema
+  function aplicarTema() {
+    const escuro = tg ? tg.colorScheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    raiz.dataset.theme = escuro ? 'dark' : 'light';
+    const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
+    document.querySelector('meta[name=theme-color]').content = bg;
+    if (tg) { try { tg.setHeaderColor(bg); tg.setBackgroundColor(bg); } catch (e) {} }
+  }
+  aplicarTema();
+  if (tg) {
+    document.body.classList.add('tg');
+    tg.ready(); tg.expand();
+    tg.onEvent('themeChanged', aplicarTema);
+  } else {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', aplicarTema);
+  }
+
+  const $ = (s) => document.querySelector(s);
+  const estado = { q: '', cat: 'Todos', ordem: 'pop', dados: null };
+  const CORES = [['#3b8bff','#1a64d6'],['#22b07d','#137a55'],['#ff8a4c','#e0542a'],['#a46bff','#6d3fd6'],['#f25c8a','#c43567'],['#1fb5c9','#11808f'],['#f2b33d','#c7841a']];
+
+  const fmt = (n) => {
+    if (n >= 1e6) return (n / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
+    if (n >= 1e4) return Math.round(n / 1e3).toLocaleString('pt-BR') + ' mil';
+    if (n >= 1e3) return (n / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil';
+    return String(n);
+  };
+  const norm = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const semEmoji = (t) => (t || '').replace(/[\p{Extended_Pictographic}‍️]/gu, '').trim();
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hash = (t) => { let h = 0; for (const c of t) h = (h * 31 + c.codePointAt(0)) | 0; return Math.abs(h); };
+
+  function abrir(url) {
+    if (tg && /^https:\/\/t\.me\//.test(url)) {
+      try { tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+      tg.openTelegramLink(url);
+    } else {
+      window.open(url, '_blank', 'noopener');
+    }
+  }
+
+  function avatar(c) {
+    const ini = (semEmoji(c.titulo)[0] || '#').toUpperCase();
+    const [a, b] = CORES[hash(c.titulo) % CORES.length];
+    // 1º a foto que o bot baixou; 2º a do t.me (às vezes vem em branco, 1 px); 3º a inicial
+    const src = c.foto || (c.username ? `https://t.me/i/userpic/320/${encodeURIComponent(c.username)}.jpg` : '');
+    const img = src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" onload="if(this.naturalWidth<20)this.remove()">` : '';
+    return `<div class="av" style="background:linear-gradient(145deg,${a},${b})">${esc(ini)}${img}</div>`;
+  }
+
+  function filtrados() {
+    const d = estado.dados; if (!d) return [];
+    const q = norm(estado.q);
+    let l = d.canais.filter((c) =>
+      (estado.cat === 'Todos' || c.categoria === estado.cat) &&
+      (!q || norm(c.titulo).includes(q) || norm(c.username).includes(q)));
+    if (estado.ordem === 'az') l = [...l].sort((a, b) => semEmoji(a.titulo).localeCompare(semEmoji(b.titulo), 'pt-BR'));
+    else if (estado.ordem === 'novos') l = [...l].sort((a, b) => (b.desde || '').localeCompare(a.desde || ''));
+    else l = [...l].sort((a, b) => b.membros - a.membros);
+    return l;
+  }
+
+  function desenhar() {
+    const l = filtrados();
+    const g = $('#grade');
+    $('#contagem').textContent = `${l.length} ${l.length === 1 ? 'resultado' : 'resultados'}`;
+    $('#tipoFiltro').textContent = estado.cat === 'Todos' ? '' : semEmoji(estado.cat);
+    if (!l.length) {
+      g.innerHTML = `<div class="vazio glass"><b>Nada encontrado</b>Tente outra palavra ou outra categoria.</div>`;
+      return;
+    }
+    const popular = estado.ordem === 'pop' && !estado.q && estado.cat === 'Todos';
+    g.innerHTML = l.map((c, i) => `
+      <article class="card glass" tabindex="0" role="link" data-url="${esc(c.link)}" style="animation-delay:${Math.min(i, 12) * 35}ms" aria-label="${esc(semEmoji(c.titulo))}, ${fmt(c.membros)} ${c.tipo === 'grupo' ? 'membros' : 'inscritos'}">
+        ${popular && i < 3 ? `<span class="rank">#${i + 1}</span>` : ''}
+        <div class="cab">${avatar(c)}
+          <div class="nome"><b>${esc(c.titulo)}</b><span>${c.username ? '@' + esc(c.username) : (c.tipo === 'grupo' ? 'Grupo' : 'Canal')}<span class="m-mob"> · ${fmt(c.membros)}</span></span></div>
+        </div>
+        <div class="pe">
+          <span class="tag tag-m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.8a3.5 3.5 0 0 1 0 6.4M18.5 14.8c1.5.8 2.6 2.6 3 5.2"/></svg>${fmt(c.membros)}</span>
+          <span class="tag tag-c">${esc(c.categoria)}</span>
+          <span class="btn btn-pri entrar">Entrar</span>
+        </div>
+      </article>`).join('');
+  }
+
+  function desenharChips() {
+    const d = estado.dados;
+    const conta = {};
+    d.canais.forEach((c) => { conta[c.categoria] = (conta[c.categoria] || 0) + 1; });
+    const cats = ['Todos', ...d.categorias.filter((c) => conta[c])];
+    $('#chips').innerHTML = cats.map((c) => `<button type="button" role="tab" class="chip${c === estado.cat ? ' on' : ''}" data-c="${esc(c)}" aria-selected="${c === estado.cat}">${esc(c === 'Todos' ? 'Todos' : c)}<small>${c === 'Todos' ? d.canais.length : conta[c]}</small></button>`).join('');
+  }
+
+  function montar(d) {
+    estado.dados = d;
+    const b = d.bot || {};
+    if (b.nome) { $('#nomeBot').textContent = b.nome; document.title = b.nome; }
+    if (b.username) $('#userBot').textContent = '@' + b.username;
+    const soma = d.canais.reduce((s, c) => s + (c.membros || 0), 0);
+    $('#sCanais').textContent = d.canais.length;
+    $('#sMembros').textContent = fmt(soma);
+    $('#sHora').textContent = (d.horarios || '').split(',')[0].trim() || '–';
+    const add = b.aceita === 'grupos' ? b.adicionar_grupo : b.adicionar_canal;
+    $('#btnAdd').href = add || '#';
+    const acoes = [];
+    if (b.aceita !== 'grupos') acoes.push(`<a class="btn btn-pri" href="${esc(b.adicionar_canal)}" data-tg>Adicionar meu canal</a>`);
+    if (b.aceita === 'grupos' || b.aceita === 'ambos') acoes.push(`<a class="btn btn-sec" href="${esc(b.adicionar_grupo)}" data-tg>Adicionar meu grupo</a>`);
+    if (b.username && !tg) acoes.push(`<a class="btn btn-sec" href="https://t.me/${esc(b.username)}" data-tg>Abrir o bot</a>`);
+    $('#ctaAcoes').innerHTML = acoes.join('');
+    if (d.atualizado) {
+      const t = new Date(d.atualizado);
+      $('#rodape').textContent = `Atualizado em ${t.toLocaleDateString('pt-BR')} às ${t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    desenharChips(); desenhar();
+  }
+
+  // eventos
+  let tempo;
+  $('#q').addEventListener('input', (e) => {
+    $('#limpar').classList.toggle('on', !!e.target.value);
+    clearTimeout(tempo); tempo = setTimeout(() => { estado.q = e.target.value; desenhar(); }, 120);
+  });
+  $('#limpar').addEventListener('click', () => { $('#q').value = ''; estado.q = ''; $('#limpar').classList.remove('on'); desenhar(); $('#q').focus(); });
+  $('#chips').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    estado.cat = b.dataset.c; desenharChips(); desenhar();
+    b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  });
+  document.querySelector('.ordem').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    estado.ordem = b.dataset.o;
+    document.querySelectorAll('.ordem button').forEach((x) => x.classList.toggle('on', x === b));
+    desenhar();
+  });
+  $('#grade').addEventListener('click', (e) => { const c = e.target.closest('.card'); if (c) abrir(c.dataset.url); });
+  $('#grade').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const c = e.target.closest('.card'); if (c) abrir(c.dataset.url); } });
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-tg], #btnAdd'); if (!a || !tg) return;
+    e.preventDefault(); abrir(a.href);
+  });
+
+  fetch('canais.json?v=' + Math.floor(Date.now() / 300000), { cache: 'no-store' })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(montar)
+    .catch(() => {
+      $('#contagem').textContent = '';
+      $('#grade').innerHTML = `<div class="vazio glass"><b>Não deu para carregar a lista</b>Confira a internet e abra de novo.</div>`;
+    });
+})();
+</script>
+</body>
+</html>

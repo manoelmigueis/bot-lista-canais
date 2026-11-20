@@ -9,6 +9,7 @@ import asyncio
 import csv
 import html
 import io
+import json
 import logging
 import os
 import random
@@ -22,7 +23,9 @@ from telegram import (
     InlineQueryResultArticle,
     InlineQueryResultsButton,
     InputTextMessageContent,
+    MenuButtonWebApp,
     Update,
+    WebAppInfo,
 )
 from telegram.constants import ChatMemberStatus, ChatType, ParseMode
 from telegram.error import BadRequest, Forbidden, TelegramError
@@ -70,6 +73,9 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", "0") or 0)
 API_ID = int(os.environ.get("TG_API_ID", "0") or 0)    # busca global (opcional)
 API_HASH = os.environ.get("TG_API_HASH", "")
 SESSAO_BUSCA = PASTA / "busca"                         # criada pelo login_busca.py
+# Versão web da lista (site + Mini App). O bot grava docs/canais.json; o GitHub Pages serve.
+WEB_URL = os.environ.get("WEB_URL", "https://manoelmigueis.github.io/bot-lista-canais/")
+ARQ_SITE = PASTA / "docs" / "canais.json"
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -406,6 +412,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     sup = url_suporte()
     teclado = kb(
         botoes_adicionar(context.bot),
+        [InlineKeyboardButton("🌐 Ver a lista completa", web_app=WebAppInfo(WEB_URL))],
         [B("📂 Categorias", "cats"), B("🔥 Populares", "pop:0")],
         [B("🆕 Recentes", "rec:0"), B("🔍 Buscar", "busca")],
         [B("📋 Meus canais", "meus"), B("ℹ️ Como funciona", "ajuda")],
@@ -1259,7 +1266,7 @@ def montar_teclado(bot, escolhidos) -> InlineKeyboardMarkup:
     grade = [bts[i:i + col] for i in range(0, len(bts), col)]
     rodape = [U("➕ Adicione seu canal", f"https://t.me/{bot.username}?start=lista")]
     if ligado("ver_mais"):
-        rodape.append(U("📂 Ver mais", f"https://t.me/{bot.username}?start=catalogo"))
+        rodape.append(U("📂 Ver mais", WEB_URL))
     return InlineKeyboardMarkup(topo + grade + fim + [rodape])
 
 
@@ -1395,8 +1402,100 @@ def agendar(app: Application | None) -> None:
     log.info("Lista agendada: %s (%s)", cfg("horarios"), texto_dias())
 
 
+# ================================================================ versão web
+
+
+def dados_site(bot, fotos: dict | None = None) -> dict:
+    """Só campos públicos: nada de dono, chat_id ou configuração interna."""
+    rows = db.execute(f"SELECT * FROM canais WHERE {NA_LISTA} ORDER BY membros DESC").fetchall()
+    canais = []
+    for r in rows:
+        canais.append({
+            "titulo": r["titulo"],
+            "link": r["link"],
+            "username": username_do_link(r["link"]),
+            "membros": r["membros"] or 0,
+            "categoria": r["categoria"] or "📦 Outros",
+            "tipo": "grupo" if r["tipo"] in ("group", "supergroup") else "canal",
+            "desde": r["criado_em"],
+            "foto": (fotos or {}).get(r["chat_id"]),
+        })
+    base = f"https://t.me/{bot.username}"
+    return {
+        "bot": {"username": bot.username, "nome": bot.first_name,
+                "adicionar_canal": (f"{base}?startchannel&admin=post_messages+delete_messages"
+                                    "+edit_messages+invite_users"),
+                "adicionar_grupo": f"{base}?startgroup&admin=delete_messages+pin_messages+invite_users",
+                "aceita": cfg("aceita")},
+        "horarios": cfg("horarios"),
+        "categorias": CATEGORIAS,
+        "canais": canais,
+    }
+
+
+async def git(*args) -> int:
+    proc = await asyncio.create_subprocess_exec(
+        "git", "-c", "user.name=bot-lista", "-c", "user.email=bot-lista@users.noreply.github.com",
+        *args, cwd=PASTA, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+    _, err = await proc.communicate()
+    if proc.returncode:
+        log.warning("git %s: %s", args[0], err.decode(errors="ignore")[-300:])
+    return proc.returncode
+
+
+async def baixar_fotos(bot) -> dict:
+    """Foto de cada canal pela API do bot, salva em docs/fotos/<id único>.jpg.
+    O nome muda quando o dono troca a foto; as que ninguém usa mais são apagadas."""
+    pasta = ARQ_SITE.parent / "fotos"
+    pasta.mkdir(parents=True, exist_ok=True)
+    fotos = {}
+    for r in db.execute(f"SELECT chat_id FROM canais WHERE {NA_LISTA}").fetchall():
+        try:
+            chat = await bot.get_chat(r["chat_id"])
+            if not chat.photo:
+                continue
+            nome = f"{chat.photo.small_file_unique_id}.jpg"
+            if not (pasta / nome).exists():
+                arq = await bot.get_file(chat.photo.small_file_id)
+                await arq.download_to_drive(pasta / nome)
+            fotos[r["chat_id"]] = f"fotos/{nome}"
+        except TelegramError as e:
+            log.info("Foto de %s: %s", r["chat_id"], e)
+    usadas = {Path(f).name for f in fotos.values()}
+    for f in pasta.glob("*.jpg"):
+        if f.name not in usadas:
+            f.unlink()
+    return fotos
+
+
+async def job_site(context: ContextTypes.DEFAULT_TYPE) -> None:
+    novo = dados_site(context.bot, await baixar_fotos(context.bot))
+    try:
+        velho = json.loads(ARQ_SITE.read_text(encoding="utf-8"))
+        velho.pop("atualizado", None)
+    except (OSError, ValueError):
+        velho = None
+    if velho == novo:
+        return
+    novo["atualizado"] = agora().isoformat(timespec="minutes")
+    ARQ_SITE.parent.mkdir(exist_ok=True)
+    ARQ_SITE.write_text(json.dumps(novo, ensure_ascii=False, indent=1), encoding="utf-8")
+    log.info("Site: canais.json atualizado (%s canais).", len(novo["canais"]))
+    if os.environ.get("GITHUB_ACTIONS") == "true":  # na nuvem, publica no GitHub Pages
+        await git("add", "-A", "docs")
+        if await git("commit", "-m", "site: lista atualizada") == 0:
+            await git("pull", "--rebase", "-X", "theirs")
+            await git("push")
+
+
 async def ao_iniciar(app: Application) -> None:
     agendar(app)
+    app.job_queue.run_repeating(job_site, interval=1800, first=15)
+    try:
+        await app.bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp("Lista", WebAppInfo(WEB_URL)))
+    except TelegramError as e:
+        log.warning("Botão do Mini App: %s", e)
     app.job_queue.run_repeating(job_limpeza, interval=300, first=10)
     await ligar_busca()
     # No GitHub Actions cada rodada dura no máximo 6 h: sai antes, a próxima assume.
